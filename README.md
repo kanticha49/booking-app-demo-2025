@@ -340,3 +340,293 @@ NODE_ENV=production
 - [ ] Test API endpoints from frontend
 - [ ] Verify CORS configuration
 
+## Multiple Environments (QA, Staging, Production)
+
+For production deployments, it's recommended to have separate environments for QA, Staging, and Production.
+
+### Git Branching Strategy
+
+Use Git Flow or similar branching strategy:
+
+```
+main (Production) ────┐
+                      ├── deploy to Production
+staging ──────────────┤
+                      ├── deploy to Staging
+develop ──────────────┐
+                      ├── deploy to QA
+feature/* ────────────┘
+```
+
+- **main**: Production-ready code
+- **staging**: Release candidate testing
+- **develop**: Development integration
+- **feature/***: Individual feature development
+
+### Environment-specific Configurations
+
+#### 1. GitHub Environments
+
+Create environments in GitHub repository:
+
+1. Go to Repository Settings > Environments
+2. Create environments: `qa`, `staging`, `production`
+3. Add environment secrets and variables for each environment
+
+#### 2. Deployment Workflows
+
+Create separate workflow files for each environment:
+
+**`.github/workflows/deploy-qa.yml`**:
+```yaml
+name: Deploy to QA
+
+on:
+  push:
+    branches: [ develop ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Frontend to Vercel
+        run: |
+          # Vercel CLI deployment for QA
+          npm install -g vercel
+          cd frontend
+          vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --scope ${{ secrets.VERCEL_SCOPE }}
+
+      - name: Deploy Backend to Render
+        run: |
+          # Trigger Render deployment via webhook or API
+          curl -X POST ${{ secrets.RENDER_DEPLOY_WEBHOOK }}
+```
+
+**`.github/workflows/deploy-staging.yml`**:
+```yaml
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ staging ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Frontend to Vercel
+        run: |
+          npm install -g vercel
+          cd frontend
+          vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --scope ${{ secrets.VERCEL_SCOPE }}
+
+      - name: Deploy Backend
+        run: |
+          # Railway deployment
+          curl -X POST ${{ secrets.RAILWAY_DEPLOY_WEBHOOK }}
+```
+
+**`.github/workflows/deploy-production.yml`**:
+```yaml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Frontend to Vercel
+        run: |
+          npm install -g vercel
+          cd frontend
+          vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --scope ${{ secrets.VERCEL_SCOPE }}
+
+      - name: Deploy Backend
+        run: |
+          # Digital Ocean deployment
+          curl -X POST ${{ secrets.DO_DEPLOY_WEBHOOK }}
+```
+
+#### 3. Environment Variables Management
+
+Create environment-specific variable files:
+
+**`frontend/.env.qa`**:
+```
+VITE_API_URL=https://qa-api.yourdomain.com
+```
+
+**`frontend/.env.staging`**:
+```
+VITE_API_URL=https://staging-api.yourdomain.com
+```
+
+**`frontend/.env.production`**:
+```
+VITE_API_URL=https://api.yourdomain.com
+```
+
+**`backend/.env.qa`**:
+```
+DATABASE_URL=postgresql://user:pass@qa-db-host:5432/qa_db
+JWT_SECRET=qa-secret-key
+NODE_ENV=production
+```
+
+**`backend/.env.staging`**:
+```
+DATABASE_URL=postgresql://user:pass@staging-db-host:5432/staging_db
+JWT_SECRET=staging-secret-key
+NODE_ENV=production
+```
+
+**`backend/.env.production`**:
+```
+DATABASE_URL=postgresql://user:pass@prod-db-host:5432/prod_db
+JWT_SECRET=prod-secret-key
+NODE_ENV=production
+```
+
+### Platform-specific Environment Setup
+
+#### Vercel Environment Variables
+
+For each Vercel project (QA, Staging, Production):
+
+1. Go to Vercel Dashboard > Project Settings > Environment Variables
+2. Add variables for each environment:
+   - QA: `VITE_API_URL=https://qa-api.yourdomain.com`
+   - Staging: `VITE_API_URL=https://staging-api.yourdomain.com`
+   - Production: `VITE_API_URL=https://api.yourdomain.com`
+
+#### Backend Platform Environment Variables
+
+**Render**:
+- Environment: Static (or pull from GitHub secrets)
+- Add variables in Render dashboard for each service
+
+**Railway**:
+- Environment Variables in Railway dashboard
+- Can use Railway's built-in environment management
+
+**Digital Ocean**:
+- Environment Variables in App Platform settings
+- Separate apps for each environment
+
+### Nginx Configuration for Multiple Environments
+
+Create separate Nginx configurations for each environment:
+
+**`/etc/nginx/sites-available/booking-qa`**:
+```nginx
+server {
+    listen 80;
+    server_name qa.yourdomain.com;
+
+    location / {
+        proxy_pass https://qa-vercel-app.vercel.app;
+        # ... proxy settings
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:3002;  # QA backend port
+        # ... proxy and CORS settings
+    }
+}
+```
+
+**`/etc/nginx/sites-available/booking-staging`**:
+```nginx
+server {
+    listen 80;
+    server_name staging.yourdomain.com;
+
+    location / {
+        proxy_pass https://staging-vercel-app.vercel.app;
+        # ... proxy settings
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:3003;  # Staging backend port
+        # ... proxy and CORS settings
+    }
+}
+```
+
+**`/etc/nginx/sites-available/booking-prod`**:
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass https://prod-vercel-app.vercel.app;
+        # ... proxy settings
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:3001;  # Production backend port
+        # ... proxy and CORS settings
+    }
+}
+```
+
+### Deployment Checklist for Multiple Environments
+
+#### QA Environment
+- [ ] QA branch created and protected
+- [ ] QA database created
+- [ ] QA Vercel project configured
+- [ ] QA backend service deployed
+- [ ] QA Nginx configuration applied
+- [ ] QA domain/subdomain configured
+
+#### Staging Environment
+- [ ] Staging branch created and protected
+- [ ] Staging database created
+- [ ] Staging Vercel project configured
+- [ ] Staging backend service deployed
+- [ ] Staging Nginx configuration applied
+- [ ] Staging domain/subdomain configured
+
+#### Production Environment
+- [ ] Main branch protected with required reviews
+- [ ] Production database created
+- [ ] Production Vercel project configured
+- [ ] Production backend service deployed
+- [ ] Production Nginx configuration applied
+- [ ] Production domain configured
+- [ ] SSL certificates configured for all domains
+
+### Branch Protection Rules
+
+Configure branch protection in GitHub:
+
+**develop → QA**:
+- Require pull request reviews
+- Require status checks (CI)
+- Restrict pushes to maintainers
+
+**staging → Staging**:
+- Require pull request reviews
+- Require QA approval
+- Require status checks
+
+**main → Production**:
+- Require pull request reviews
+- Require staging approval
+- Require security scans
+- Restrict pushes to release managers
+
