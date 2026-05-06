@@ -27,8 +27,8 @@ COPY docker-entrypoint.sh ./
 RUN chmod +x ./docker-entrypoint.sh
 
 # Create non-root user for security
-RUN addgroup -g 1001 nodejs
-RUN adduser -u 1001 -m nextjs -g nodejs
+RUN addgroup -g 1001 nodejs && \
+    adduser -u 1001 -g nodejs -m nextjs
 
 # Change ownership of app directory
 RUN chown -R nextjs:nodejs /app
