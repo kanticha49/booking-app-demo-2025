@@ -27,8 +27,8 @@ COPY docker-entrypoint.sh ./
 RUN chmod +x ./docker-entrypoint.sh
 
 # Create non-root user for security
-RUN addgroup -g 1001 nodejs && \
-    adduser -u 1001 -g nodejs -m nextjs
+RUN groupadd -g 1001 nodejs && \
+    useradd -u 1001 -g nodejs -m nextjs
 
 # Change ownership of app directory
 RUN chown -R nextjs:nodejs /app
@@ -43,3 +43,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Start the application with entrypoint script
 ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["npm", "start"]
