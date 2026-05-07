@@ -19,7 +19,7 @@ function runMigrations() {
 
 async function initDatabase() {
   try {
-    runMigrations();
+   // runMigrations();// ปิดการรัน migrations อัตโนมัติ เพื่อให้สามารถควบคุมการรันได้เอง
     await db.$connect();
     console.log('เชื่อมต่อฐานข้อมูล PostgreSQL สำเร็จ');
 
